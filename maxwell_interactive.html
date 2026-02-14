@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>麦克斯韦方程组互动可视化（离线版）</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #131c33;
+      --panel2: #1b2745;
+      --accent: #52b7ff;
+      --accent2: #ffd166;
+      --text: #e8f0ff;
+      --muted: #a6b7d6;
+      --ok: #66e3a4;
+      --warn: #ff9f6e;
+      --danger: #ff6b6b;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at 20% 15%, #15233f, var(--bg));
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      grid-template-rows: 1fr auto;
+      height: 100vh;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      background: rgba(10, 16, 35, 0.75);
+      border: 1px solid #2a3b66;
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 320px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .overlay-top {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      z-index: 5;
+    }
+
+    .chip {
+      background: rgba(24, 36, 66, 0.9);
+      border: 1px solid #35518f;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .controls {
+      background: rgba(11, 18, 38, 0.86);
+      border: 1px solid #2a3b66;
+      border-radius: 12px;
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .section-title { margin: 0 0 10px; font-size: 18px; }
+    .row {
+      margin-bottom: 10px;
+      background: var(--panel);
+      border: 1px solid #263c6a;
+      border-radius: 10px;
+      padding: 8px;
+    }
+
+    .row label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input[type="range"] { width: 100%; }
+
+    .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 1px solid #35518f;
+      background: linear-gradient(#1d2e57, #182445);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.active {
+      border-color: #6ec8ff;
+      box-shadow: 0 0 0 2px rgba(82, 183, 255, 0.22) inset;
+    }
+
+    .bottom {
+      grid-column: 1 / span 2;
+      background: rgba(11, 18, 38, 0.92);
+      border: 1px solid #2a3b66;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .formula {
+      font-family: "Consolas", "Courier New", monospace;
+      color: var(--accent2);
+      font-size: 15px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .key {
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    .cards {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 14px;
+      padding: 18px;
+      background: rgba(5, 9, 21, 0.72);
+      backdrop-filter: blur(2px);
+      z-index: 7;
+    }
+
+    .card {
+      background: linear-gradient(160deg, #142242, #1c2f5a);
+      border: 1px solid #3c63a8;
+      border-radius: 12px;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform .16s ease;
+    }
+    .card:hover { transform: translateY(-2px); }
+    .card h3 { margin: 0 0 6px; font-size: 16px; }
+    .card p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .hidden { display: none !important; }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      border: 1px solid #4e74bd;
+      color: #b9d2ff;
+      margin-top: 6px;
+    }
+
+    .flux-bar { display:flex; gap: 8px; align-items: center; }
+    .bar {
+      width: 90px;
+      height: 10px;
+      background: #111d37;
+      border: 1px solid #365896;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+    .bar > span { position:absolute; left:0; top:0; bottom:0; background: var(--accent); }
+
+    .tip {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #f3c27e;
+      background: rgba(75, 53, 15, .25);
+      border: 1px solid rgba(190, 136, 34, .35);
+      padding: 6px;
+      border-radius: 8px;
+    }
+
+    .help-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 8, 16, .7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    .help-box {
+      width: min(760px, 92vw);
+      background: #111c37;
+      border: 1px solid #3b5f9f;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    table { width:100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #33528e; padding: 6px; text-align: left; }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: 48vh auto auto; }
+      .bottom { grid-column: auto; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!--
+  使用说明：
+  1) 双击本 HTML 文件即可离线运行，点击“总览”选择四个模块；每个模块右侧可调参数观察动画。
+  2) 课堂建议：先讲“人话解释”，再拖滑块让学生预测变化，最后对照公式解释。
+  3) 点击“联动演示”可串联法拉第与安培-麦克斯韦，帮助建立“电磁波自传播”的直觉。
+  -->
+  <div class="app">
+    <div class="canvas-wrap">
+      <div class="overlay-top">
+        <span class="chip" id="moduleChip">当前：总览模式</span>
+        <span class="chip" id="statusChip">状态：播放中</span>
+      </div>
+      <canvas id="cv"></canvas>
+      <div class="cards" id="overviewCards"></div>
+    </div>
+
+    <aside class="controls" id="controlsPanel"></aside>
+
+    <section class="bottom">
+      <div>
+        <h3 style="margin:0 0 6px;">人话解释</h3>
+        <div id="plainText">点击“总览”中的卡片开始。</div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 6px;">公式解释</h3>
+        <div class="formula" id="formulaText">∮ E·dA = Q_enclosed / ε₀ 等</div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 6px;">关键点</h3>
+        <div id="keyPoint" class="key">四条方程：源（电荷/电流）+ 变化（d/dt）决定场。</div>
+      </div>
+    </section>
+  </div>
+
+  <div id="help" class="help-modal hidden">
+    <div class="help-box">
+      <h3 style="margin-top:0;">符号表（帮助）</h3>
+      <table>
+        <tr><th>符号</th><th>含义（直观）</th></tr>
+        <tr><td>E</td><td>电场（对电荷的“推/拉”作用）</td></tr>
+        <tr><td>B</td><td>磁场（对运动电荷/电流的环绕效应）</td></tr>
+        <tr><td>ρ</td><td>电荷密度（单位体积内电荷多少）</td></tr>
+        <tr><td>J</td><td>电流密度（电荷流动强度）</td></tr>
+        <tr><td>Φ_E</td><td>电通量（穿过闭合面的电场“净穿出量”）</td></tr>
+        <tr><td>Φ_B</td><td>磁通量（穿过闭合面的磁场“净穿出量”）</td></tr>
+      </table>
+      <div style="margin-top:10px; text-align:right;"><button id="closeHelp">关闭</button></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('cv');
+      const ctx = canvas.getContext('2d');
+      const controlsPanel = document.getElementById('controlsPanel');
+      const moduleChip = document.getElementById('moduleChip');
+      const statusChip = document.getElementById('statusChip');
+      const plainText = document.getElementById('plainText');
+      const formulaText = document.getElementById('formulaText');
+      const keyPoint = document.getElementById('keyPoint');
+      const overviewCards = document.getElementById('overviewCards');
+      const help = document.getElementById('help');
+      const closeHelp = document.getElementById('closeHelp');
+
+      const app = {
+        mode: 'overview',
+        paused: false,
+        slow: false,
+        time: 0,
+        dt: 0.016,
+        drag: null,
+        mouse: {x: 0, y: 0},
+      };
+
+      const utils = {
+        clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
+        lerp: (a, b, t) => a + (b - a) * t,
+        drawArrow(x1, y1, x2, y2, color='#8ecbff', w=1.4) {
+          const ang = Math.atan2(y2 - y1, x2 - x1);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = w;
+          ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          const h = 7;
+          ctx.beginPath();
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x2 - h * Math.cos(ang - 0.35), y2 - h * Math.sin(ang - 0.35));
+          ctx.lineTo(x2 - h * Math.cos(ang + 0.35), y2 - h * Math.sin(ang + 0.35));
+          ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.fill();
+        },
+        drawCircleArrow(cx, cy, r, dir=1, color='#ffd166') {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 1.85, dir < 0);
+          ctx.stroke();
+          const ang = dir > 0 ? Math.PI * 1.85 : 0;
+          const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
+          const tx = -Math.sin(ang) * dir, ty = Math.cos(ang) * dir;
+          utils.drawArrow(x - tx * 6, y - ty * 6, x + tx * 6, y + ty * 6, color, 1.3);
+        }
+      };
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.floor(rect.width * devicePixelRatio);
+        canvas.height = Math.floor(rect.height * devicePixelRatio);
+        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      // 模块定义：每个模块有 init / update / render / ui
+      const modules = {
+        A: {
+          name: '模块A：高斯定律（电）',
+          state: { q: 1, type: 'point', surfR: 90, sx: 1, sy: 1 },
+          init() {},
+          update(dt) { this.state.pulse = Math.sin(app.time * 2); },
+          render() {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const cx = w * 0.43, cy = h * 0.52;
+            const s = this.state;
+
+            // 电荷源
+            if (s.type === 'point') {
+              ctx.fillStyle = s.q >= 0 ? '#ff6b6b' : '#6bb7ff';
+              ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+              ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif';
+              ctx.fillText(s.q >= 0 ? '+' : '-', cx - 3, cy + 4);
+            } else {
+              ctx.fillStyle = 'rgba(255,107,107,0.35)';
+              ctx.beginPath(); ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.fill();
+              ctx.strokeStyle = '#ff9f6e'; ctx.stroke();
+            }
+
+            // 场线
+            const n = 16 + Math.floor(Math.abs(s.q) * 8);
+            for (let i = 0; i < n; i++) {
+              const a = (i / n) * Math.PI * 2;
+              const dir = s.q >= 0 ? 1 : -1;
+              const r0 = s.type === 'point' ? 16 : 30;
+              const r1 = 130;
+              const x1 = cx + Math.cos(a) * r0, y1 = cy + Math.sin(a) * r0;
+              const x2 = cx + Math.cos(a) * r1 * dir, y2 = cy + Math.sin(a) * r1 * dir;
+              utils.drawArrow(x1, y1, x2, y2, '#79c7ff', 1.1);
+            }
+
+            // 闭合曲面（可拖拽尺度/形状）
+            ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2;
+            ctx.setLineDash([5, 4]);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, s.surfR * s.sx, s.surfR * s.sy, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const flux = (Math.abs(s.q) * 100 * Math.sign(s.q)).toFixed(0);
+            ctx.fillStyle = '#ffd166'; ctx.font = '13px sans-serif';
+            ctx.fillText(`示意电通量 ΦE ∝ q = ${flux}`, 14, 24);
+            ctx.fillStyle = '#9eb8e8';
+            ctx.fillText('拖拽右侧控制或在画布上滚轮改变曲面大小', 14, 44);
+          },
+          ui() {
+            return `
+              <h2 class="section-title">${this.name}</h2>
+              <div class="row"><label>电荷量 q（任意单位）: <span id="v_q">${this.state.q.toFixed(1)}</span></label><input id="q" type="range" min="-3" max="3" step="0.1" value="${this.state.q}"/></div>
+              <div class="row"><label>电荷模型</label><div class="btns"><button data-set="type" data-val="point" class="${this.state.type==='point'?'active':''}">点电荷</button><button data-set="type" data-val="sphere" class="${this.state.type==='sphere'?'active':''}">均匀带电球</button></div></div>
+              <div class="row"><label>曲面大小 R（px）: <span id="v_r">${this.state.surfR.toFixed(0)}</span></label><input id="surfR" type="range" min="50" max="160" step="1" value="${this.state.surfR}"/></div>
+              <div class="row"><label>曲面形变（x/y）</label><input id="sx" type="range" min="0.6" max="1.6" step="0.05" value="${this.state.sx}"/><input id="sy" type="range" min="0.6" max="1.6" step="0.05" value="${this.state.sy}"/></div>
+            `;
+          },
+          bind() {
+            bindRange('q', this.state, 'q', v => document.getElementById('v_q').textContent = (+v).toFixed(1));
+            bindRange('surfR', this.state, 'surfR', v => document.getElementById('v_r').textContent = (+v).toFixed(0));
+            bindRange('sx', this.state, 'sx'); bindRange('sy', this.state, 'sy');
+            bindButtons(this.state);
+          },
+          explain: {
+            plain: '电荷就是电场线的“源/汇”：正电荷往外发散，负电荷往里汇聚。',
+            formula: '∮ E·dA = Q_enclosed / ε₀',
+            key: '曲面怎么变形不重要，只要包围的净电荷不变，净电通量不变。'
+          }
+        },
+
+        B: {
+          name: '模块B：高斯定律（磁）',
+          state: { model: 'bar', wobble: 0.4 },
+          update() {},
+          render() {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const cx = w * 0.43, cy = h * 0.52;
+            const s = this.state;
+
+            // 闭合面
+            ctx.setLineDash([4,3]);
+            ctx.strokeStyle = '#ffd166';
+            ctx.beginPath(); ctx.ellipse(cx, cy, 140, 85, 0, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (s.model === 'bar') {
+              ctx.fillStyle = '#6bb7ff'; ctx.fillRect(cx - 55, cy - 16, 55, 32);
+              ctx.fillStyle = '#ff6b6b'; ctx.fillRect(cx, cy - 16, 55, 32);
+              ctx.fillStyle = '#fff'; ctx.fillText('S', cx - 30, cy + 5); ctx.fillText('N', cx + 25, cy + 5);
+            } else {
+              ctx.strokeStyle = '#9ad8ff'; ctx.lineWidth = 3;
+              ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.stroke();
+              ctx.fillStyle = '#9ad8ff'; ctx.fillText('电流环', cx - 18, cy - 44);
+            }
+
+            // 闭合磁力线
+            for (let i = 0; i < 7; i++) {
+              const r = 36 + i * 14;
+              const p = Math.sin(app.time * 1.3 + i) * s.wobble;
+              ctx.strokeStyle = `rgba(108,210,255,${0.9 - i * 0.1})`;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.ellipse(cx, cy, r + p * 3, r * 0.52, 0, 0, Math.PI * 2);
+              ctx.stroke();
+              utils.drawArrow(cx + r*0.65, cy, cx + r*0.65 + 0.1, cy + 0.1, '#74d8ff');
+            }
+
+            ctx.fillStyle = '#e8f0ff'; ctx.font = '13px sans-serif';
+            ctx.fillText('任意闭合面上：穿入磁通 = 穿出磁通', 14, 24);
+          },
+          ui() {
+            return `
+              <h2 class="section-title">${this.name}</h2>
+              <div class="row"><label>磁场来源模型</label><div class="btns"><button data-set="model" data-val="bar" class="${this.state.model==='bar'?'active':''}">条形磁铁</button><button data-set="model" data-val="loop" class="${this.state.model==='loop'?'active':''}">电流环</button></div></div>
+              <div class="row"><label>动画抖动幅度: <span id="v_w">${this.state.wobble.toFixed(2)}</span></label><input id="wobble" type="range" min="0" max="1" step="0.05" value="${this.state.wobble}"/></div>
+              <div class="row"><label>通量对比（闭合面）</label><div class="flux-bar"><span>穿入</span><div class="bar"><span style="width:100%"></span></div><span>=</span><div class="bar"><span style="width:100%; background:#66e3a4;"></span></div><span>穿出</span></div></div>
+            `;
+          },
+          bind() { bindRange('wobble', this.state, 'wobble', v => document.getElementById('v_w').textContent=(+v).toFixed(2)); bindButtons(this.state); },
+          explain: {
+            plain: '磁场线永远是闭合回路，不会像电场那样从“磁单极”发散。',
+            formula: '∮ B·dA = 0',
+            key: '没有实验确认的磁单极子时，任意闭合面的净磁通恒为0。'
+          }
+        },
+
+        C: {
+          name: '模块C：法拉第电磁感应定律',
+          state: { mode: 'dB', dBdt: 1.0, area: 1.0, rot: 0.0 },
+          update(dt) {
+            if (this.state.mode === 'rotate' && !app.paused) this.state.rot += dt * 0.8;
+          },
+          render() {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const cx = w * 0.43, cy = h * 0.52;
+            const s = this.state;
+
+            // 线圈
+            ctx.save();
+            ctx.translate(cx, cy);
+            const angle = s.mode === 'rotate' ? Math.sin(s.rot) * 0.9 : 0;
+            ctx.scale(Math.cos(angle), 1);
+            ctx.strokeStyle = '#9ad8ff'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 70 * s.area, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+
+            // 外加磁场（点/叉）
+            const bVal = s.mode === 'dB' ? s.dBdt : s.mode === 'area' ? (s.area - 1) * 2 : Math.cos(s.rot);
+            const density = Math.floor(14 + Math.abs(bVal) * 9);
+            for (let i = 0; i < density; i++) {
+              const x = cx - 110 + (i % 7) * 34;
+              const y = cy - 90 + Math.floor(i / 7) * 28;
+              ctx.fillStyle = bVal >= 0 ? '#69c0ff' : '#ff9f6e';
+              if (bVal >= 0) { ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); }
+              else { ctx.beginPath(); ctx.moveTo(x-3,y-3); ctx.lineTo(x+3,y+3); ctx.moveTo(x+3,y-3); ctx.lineTo(x-3,y+3); ctx.strokeStyle='#ff9f6e'; ctx.stroke(); }
+            }
+
+            const emfSign = bVal >= 0 ? -1 : 1; // 楞次定律方向示意
+            for (let i = 0; i < 3; i++) utils.drawCircleArrow(cx, cy, 88 + i*12, emfSign, '#ffd166');
+
+            ctx.fillStyle = '#e8f0ff';
+            ctx.fillText('变化磁通 -> 感生环形电场（黄色箭头）', 14, 24);
+            ctx.fillStyle = '#f3c27e';
+            ctx.fillText(`楞次定律：方向总是“反抗磁通变化”`, 14, 44);
+          },
+          ui() {
+            return `
+              <h2 class="section-title">${this.name}</h2>
+              <div class="row"><label>改变磁通方式</label><div class="btns"><button data-set="mode" data-val="dB" class="${this.state.mode==='dB'?'active':''}">改变 B</button><button data-set="mode" data-val="area" class="${this.state.mode==='area'?'active':''}">改变面积</button><button data-set="mode" data-val="rotate" class="${this.state.mode==='rotate'?'active':''}">旋转线圈</button></div></div>
+              <div class="row"><label>dB/dt（T/s）: <span id="v_dB">${this.state.dBdt.toFixed(2)}</span></label><input id="dBdt" type="range" min="-2" max="2" step="0.05" value="${this.state.dBdt}"/></div>
+              <div class="row"><label>线圈面积比例 A/A₀: <span id="v_area">${this.state.area.toFixed(2)}</span></label><input id="area" type="range" min="0.5" max="1.5" step="0.05" value="${this.state.area}"/></div>
+            `;
+          },
+          bind() { bindButtons(this.state); bindRange('dBdt', this.state, 'dBdt', v => document.getElementById('v_dB').textContent=(+v).toFixed(2)); bindRange('area', this.state, 'area', v => document.getElementById('v_area').textContent=(+v).toFixed(2)); },
+          explain: {
+            plain: '磁场在变，就会“拽”出绕圈的电场，不需要电荷排队。',
+            formula: '∮ E·dl = - dΦ_B / dt',
+            key: '变化的是磁通（B、面积、夹角都可变），不是只看B本身。'
+          }
+        },
+
+        D: {
+          name: '模块D：安培-麦克斯韦定律',
+          state: { mode: 'wire', I: 2.0, dEdt: 1.2 },
+          update() {},
+          render() {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const cx = w * 0.43, cy = h * 0.52;
+            const s = this.state;
+
+            if (s.mode === 'wire') {
+              ctx.strokeStyle = '#f5f7ff'; ctx.lineWidth = 6;
+              ctx.beginPath(); ctx.moveTo(cx, cy - 90); ctx.lineTo(cx, cy + 90); ctx.stroke();
+              ctx.fillStyle = '#fff'; ctx.fillText('I ↑', cx + 10, cy - 70);
+
+              const loops = 4;
+              for (let i = 1; i <= loops; i++) {
+                utils.drawCircleArrow(cx, cy, i * 26, s.I >= 0 ? 1 : -1, '#66e3a4');
+              }
+            } else {
+              // 充电电容
+              ctx.fillStyle = '#cad8ff';
+              ctx.fillRect(cx - 85, cy - 46, 8, 92);
+              ctx.fillRect(cx + 77, cy - 46, 8, 92);
+              ctx.fillStyle = '#e8f0ff'; ctx.fillText('+', cx - 96, cy - 56); ctx.fillText('-', cx + 92, cy - 56);
+              const eStrength = 0.5 + Math.abs(s.dEdt) * 0.4;
+              for (let i = 0; i < 8; i++) {
+                const y = cy - 36 + i * 10;
+                utils.drawArrow(cx - 70, y, cx + 70, y, `rgba(121,199,255,${eStrength})`, 1.2);
+              }
+              for (let i = 0; i < 4; i++) utils.drawCircleArrow(cx, cy, 34 + i * 20, s.dEdt >= 0 ? 1 : -1, '#66e3a4');
+              ctx.fillStyle = '#f3c27e'; ctx.fillText('板间无导线电流，但 dE/dt 也激发环形 B', cx - 130, cy + 110);
+            }
+
+            ctx.fillStyle = '#e8f0ff';
+            ctx.fillText('环形磁场来源：导线电流 I 或位移电流 ε₀ dΦE/dt', 14, 24);
+          },
+          ui() {
+            return `
+              <h2 class="section-title">${this.name}</h2>
+              <div class="row"><label>场景切换</label><div class="btns"><button data-set="mode" data-val="wire" class="${this.state.mode==='wire'?'active':''}">导线电流</button><button data-set="mode" data-val="cap" class="${this.state.mode==='cap'?'active':''}">充电电容</button></div></div>
+              <div class="row"><label>导线电流 I（A，示意）: <span id="v_I">${this.state.I.toFixed(2)}</span></label><input id="I" type="range" min="-4" max="4" step="0.1" value="${this.state.I}"/></div>
+              <div class="row"><label>dE/dt（V·m⁻¹·s⁻¹，示意）: <span id="v_dE">${this.state.dEdt.toFixed(2)}</span></label><input id="dEdt" type="range" min="-3" max="3" step="0.1" value="${this.state.dEdt}"/></div>
+            `;
+          },
+          bind() { bindButtons(this.state); bindRange('I', this.state, 'I', v => document.getElementById('v_I').textContent=(+v).toFixed(2)); bindRange('dEdt', this.state, 'dEdt', v => document.getElementById('v_dE').textContent=(+v).toFixed(2)); },
+          explain: {
+            plain: '不只电流会绕出磁场，变化的电场也会绕出磁场。',
+            formula: '∮ B·dl = μ₀ I_enclosed + μ₀ε₀ dΦ_E/dt',
+            key: '位移电流项让“电容充电回路”前后磁场描述保持自洽。'
+          }
+        },
+
+        LINK: {
+          name: '联动演示：B变→E环→E变→B环',
+          state: { t: 0 },
+          update(dt) { this.state.t += dt; },
+          render() {
+            const w = canvas.clientWidth, h = canvas.clientHeight;
+            const cx = w * 0.43, cy = h * 0.5;
+            const t = this.state.t;
+            const phase = (t % 9);
+            const bAmp = Math.sin(t * 1.2);
+            const eAmp = Math.sin(t * 1.2 - Math.PI / 2);
+
+            ctx.fillStyle = '#dbe8ff';
+            ctx.fillText('联动链：变化的 B -> 环形 E -> 变化的 E -> 环形 B', 14, 24);
+
+            // 左 B
+            ctx.fillStyle = '#69c0ff';
+            for (let i = 0; i < 16; i++) {
+              const x = cx - 170 + (i % 4) * 24;
+              const y = cy - 60 + Math.floor(i / 4) * 24;
+              const rr = 1 + Math.abs(bAmp) * 3;
+              ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.fillText('B(t)', cx - 190, cy - 80);
+
+            // 中 E环
+            for (let i = 0; i < 3; i++) utils.drawCircleArrow(cx, cy, 45 + i * 14, bAmp >= 0 ? -1 : 1, '#ffd166');
+            ctx.fillStyle = '#ffd166'; ctx.fillText('E环(t)', cx - 16, cy + 90);
+
+            // 右 B环
+            for (let i = 0; i < 3; i++) utils.drawCircleArrow(cx + 170, cy, 35 + i * 13, eAmp >= 0 ? 1 : -1, '#66e3a4');
+            ctx.fillStyle = '#66e3a4'; ctx.fillText('B环(t)', cx + 145, cy + 80);
+
+            utils.drawArrow(cx - 95, cy, cx - 50, cy, '#9ab8ff', 2);
+            utils.drawArrow(cx + 95, cy, cx + 125, cy, '#9ab8ff', 2);
+
+            if (phase > 6) {
+              ctx.fillStyle = '#f3c27e';
+              ctx.fillText('直觉：E 与 B 的变化可相互“接力”传播（电磁波）', 24, h - 26);
+            }
+          },
+          ui() {
+            return `<h2 class="section-title">${this.name}</h2><div class="row">这是串联动画：先看变化的B引出环形E，再看变化的E引出环形B。</div>`;
+          },
+          bind() {},
+          explain: {
+            plain: '电场和磁场的“变化”能互相生成，像接力一样向前传播。',
+            formula: 'dB/dt -> curl(E),  dE/dt -> curl(B)',
+            key: '这就是电磁波自我传播的核心直觉（不需要先推波动方程）。'
+          }
+        }
+      };
+
+      const cardData = [
+        { id: 'A', title: 'A 高斯定律（电）', desc: '电荷是电场线源/汇，净电通量看包围净电荷。' },
+        { id: 'B', title: 'B 高斯定律（磁）', desc: '磁场线闭合，任意闭合面净磁通为0。' },
+        { id: 'C', title: 'C 法拉第感应定律', desc: '变化磁通会产生环形电场（感应电动势）。' },
+        { id: 'D', title: 'D 安培-麦克斯韦定律', desc: '电流和变化电场都产生环形磁场。' },
+      ];
+
+      function renderOverviewCards() {
+        overviewCards.innerHTML = '';
+        cardData.forEach(c => {
+          const d = document.createElement('div');
+          d.className = 'card';
+          d.innerHTML = `<h3>${c.title}</h3><p>${c.desc}</p><span class="badge">点击进入</span>`;
+          d.onclick = () => setMode(c.id);
+          overviewCards.appendChild(d);
+        });
+      }
+
+      function bindRange(id, obj, key, cb) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.oninput = () => { obj[key] = parseFloat(el.value); if (cb) cb(el.value); };
+      }
+      function bindButtons(state) {
+        controlsPanel.querySelectorAll('button[data-set]').forEach(btn => {
+          btn.onclick = () => {
+            state[btn.dataset.set] = btn.dataset.val;
+            setMode(app.mode, true);
+          };
+        });
+      }
+
+      function globalControlsHTML() {
+        return `
+          <div class="row"><label>全局控制</label><div class="btns">
+            <button id="btnOverview">总览</button>
+            <button id="btnLink">联动演示</button>
+            <button id="btnPause">${app.paused ? '播放' : '暂停'}</button>
+            <button id="btnSlow" class="${app.slow ? 'active' : ''}">慢速演示</button>
+            <button id="btnReset">重置</button>
+            <button id="btnHelp">符号表</button>
+          </div></div>
+          <div class="tip">常见误解：① 场线不是粒子轨迹；② 通量不是“某点场强”，而是穿过面的总体效果。</div>
+        `;
+      }
+
+      function setMode(mode, keepState=false) {
+        app.mode = mode;
+        if (!keepState && modules[mode]?.state?.t !== undefined) modules[mode].state.t = 0;
+
+        if (mode === 'overview') {
+          overviewCards.classList.remove('hidden');
+          controlsPanel.innerHTML = `${globalControlsHTML()}<div class="row">请点击左侧卡片进入具体方程模块。</div>`;
+          attachGlobalControlEvents();
+          moduleChip.textContent = '当前：总览模式';
+          plainText.textContent = '四条方程分别回答：电场从哪来、磁场是否有源、变化磁场如何生电场、变化电场如何生磁场。';
+          formulaText.textContent = '∇·E=ρ/ε₀,  ∇·B=0,  ∇×E=-∂B/∂t,  ∇×B=μ₀J+μ₀ε₀∂E/∂t';
+          keyPoint.textContent = '先找“源”，再看“变化”，就能理解电磁现象。';
+          return;
+        }
+
+        overviewCards.classList.add('hidden');
+        const m = modules[mode];
+        controlsPanel.innerHTML = globalControlsHTML() + m.ui();
+        attachGlobalControlEvents();
+        m.bind();
+        moduleChip.textContent = `当前：${m.name}`;
+        plainText.textContent = m.explain.plain;
+        formulaText.textContent = m.explain.formula;
+        keyPoint.textContent = m.explain.key;
+      }
+
+      function attachGlobalControlEvents() {
+        document.getElementById('btnOverview').onclick = () => setMode('overview');
+        document.getElementById('btnLink').onclick = () => setMode('LINK');
+        document.getElementById('btnPause').onclick = () => { app.paused = !app.paused; setMode(app.mode, true); };
+        document.getElementById('btnSlow').onclick = () => { app.slow = !app.slow; setMode(app.mode, true); };
+        document.getElementById('btnReset').onclick = () => {
+          modules.A.state = { q: 1, type: 'point', surfR: 90, sx: 1, sy: 1 };
+          modules.B.state = { model: 'bar', wobble: 0.4 };
+          modules.C.state = { mode: 'dB', dBdt: 1.0, area: 1.0, rot: 0.0 };
+          modules.D.state = { mode: 'wire', I: 2.0, dEdt: 1.2 };
+          modules.LINK.state = { t: 0 };
+          app.time = 0; setMode(app.mode, true);
+        };
+        document.getElementById('btnHelp').onclick = () => help.classList.remove('hidden');
+      }
+
+      closeHelp.onclick = () => help.classList.add('hidden');
+      help.onclick = (e) => { if (e.target === help) help.classList.add('hidden'); };
+
+      canvas.addEventListener('wheel', (e) => {
+        if (app.mode !== 'A') return;
+        e.preventDefault();
+        modules.A.state.surfR = utils.clamp(modules.A.state.surfR + (e.deltaY > 0 ? -4 : 4), 50, 160);
+        const r = document.getElementById('surfR');
+        if (r) { r.value = modules.A.state.surfR; document.getElementById('v_r').textContent = modules.A.state.surfR.toFixed(0); }
+      }, { passive: false });
+
+      function frame(ts) {
+        if (!frame.last) frame.last = ts;
+        const delta = Math.min(0.033, (ts - frame.last) / 1000);
+        frame.last = ts;
+        const step = app.slow ? delta * 0.35 : delta;
+        if (!app.paused) app.time += step;
+
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        ctx.clearRect(0, 0, w, h);
+        // 背景网格
+        ctx.strokeStyle = 'rgba(110,140,210,0.08)'; ctx.lineWidth = 1;
+        for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+        for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+        if (app.mode !== 'overview') {
+          const m = modules[app.mode];
+          if (m) {
+            m.update(step);
+            m.render();
+          }
+        }
+        statusChip.textContent = `状态：${app.paused ? '已暂停' : (app.slow ? '慢速播放' : '播放中')}`;
+        requestAnimationFrame(frame);
+      }
+
+      renderOverviewCards();
+      setMode('overview');
+      requestAnimationFrame(frame);
+    })();
+  </script>
+
+  <!--
+  可扩展点：
+  1) 增加“平面电磁波”模块：展示 E 与 B 正交、同相传播。
+  2) 增加 Poynting 矢量 S = E × H 的能流直觉动画。
+  3) 增加“测验模式”：给定现象，反选对应方程并即时反馈。
+  -->
+</body>
+</html>
