@@ -1,0 +1,78 @@
+<svg width="960" height="540" viewBox="0 0 960 540" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated isometric smartphone coin transfer">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#EAF4FF"/>
+      <stop offset="100%" stop-color="#E9FFF4"/>
+    </linearGradient>
+    <linearGradient id="phoneBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D8E8FF"/>
+      <stop offset="100%" stop-color="#BDD7F8"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F4FBFF"/>
+      <stop offset="100%" stop-color="#DDF7EC"/>
+    </linearGradient>
+    <linearGradient id="coinFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFEAA0"/>
+      <stop offset="100%" stop-color="#E8B74F"/>
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#7EA6D1" flood-opacity="0.35"/>
+    </filter>
+
+    <path id="coinPath" d="M290 262 C 430 140, 560 140, 700 260"/>
+  </defs>
+
+  <rect width="960" height="540" fill="url(#bg)"/>
+
+  <g opacity="0.5">
+    <ellipse cx="275" cy="365" rx="130" ry="42" fill="#9DC8E1"/>
+    <ellipse cx="690" cy="365" rx="130" ry="42" fill="#9EDDC4"/>
+  </g>
+
+  <!-- Left phone -->
+  <g transform="translate(250 150) skewY(-14)" filter="url(#softShadow)">
+    <rect x="-95" y="-30" width="190" height="280" rx="28" fill="url(#phoneBody)" stroke="#9AB9DA" stroke-width="3"/>
+    <rect x="-74" y="2" width="148" height="215" rx="18" fill="url(#screen)" stroke="#C4DEF4" stroke-width="2"/>
+    <rect x="-23" y="-17" width="46" height="7" rx="4" fill="#A5BFDB"/>
+    <circle cx="0" cy="232" r="8" fill="#A8C2DD"/>
+    <rect x="-45" y="72" width="90" height="70" rx="10" fill="#E6F5FF" stroke="#B5D1E9" stroke-width="2"/>
+    <line x1="-35" y1="90" x2="35" y2="90" stroke="#9FC2DD" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-35" y1="107" x2="20" y2="107" stroke="#BED8ED" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Right phone -->
+  <g transform="translate(690 150) skewY(-14)" filter="url(#softShadow)">
+    <rect x="-95" y="-30" width="190" height="280" rx="28" fill="url(#phoneBody)" stroke="#9CCFB8" stroke-width="3"/>
+    <rect x="-74" y="2" width="148" height="215" rx="18" fill="url(#screen)" stroke="#BDEAD6" stroke-width="2"/>
+    <rect x="-23" y="-17" width="46" height="7" rx="4" fill="#A7D9C3"/>
+    <circle cx="0" cy="232" r="8" fill="#A2D3BE"/>
+
+    <!-- Wallet icon -->
+    <g transform="translate(0 112)">
+      <rect x="-48" y="-32" width="96" height="64" rx="12" fill="#CDEFE0" stroke="#8BBDA7" stroke-width="3"/>
+      <rect x="-48" y="-12" width="96" height="22" rx="7" fill="#B2E1CD"/>
+      <rect x="10" y="-8" width="34" height="16" rx="6" fill="#8DC8AE"/>
+      <circle cx="24" cy="0" r="3.5" fill="#F8FFF9"/>
+    </g>
+  </g>
+
+  <!-- Dashed travel path -->
+  <use href="#coinPath" stroke="#7FA6CC" stroke-width="4" stroke-dasharray="10 12" stroke-linecap="round" fill="none" opacity="0.85">
+    <animate attributeName="stroke-dashoffset" from="0" to="-132" dur="3s" repeatCount="indefinite"/>
+  </use>
+
+  <!-- Coin animation -->
+  <g>
+    <g>
+      <ellipse cx="0" cy="0" rx="24" ry="24" fill="url(#coinFace)" stroke="#D39A2A" stroke-width="3"/>
+      <ellipse cx="0" cy="0" rx="8" ry="19" fill="#FDE39A" opacity="0.55">
+        <animateTransform attributeName="transform" type="scale" values="1 1;0.25 1;1 1" dur="0.7s" repeatCount="indefinite"/>
+      </ellipse>
+      <path d="M-7 -10L9 -10L4 -1H11L-6 12L-1 2H-8L-7 -10Z" fill="#C98718" opacity="0.9"/>
+      <animateMotion dur="3s" repeatCount="indefinite" rotate="auto" keyTimes="0;0.1;0.9;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" calcMode="spline">
+        <mpath href="#coinPath"/>
+      </animateMotion>
+    </g>
+  </g>
+</svg>
